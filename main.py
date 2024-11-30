@@ -2,7 +2,7 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify
 from pydub import AudioSegment
-from io import BytesIO
+import tempfile
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import LabelEncoder
 import librosa
@@ -10,16 +10,17 @@ import librosa
 app = Flask(__name__)
 
 # Fungsi Konversi dan Ekstraksi Fitur
-def convert_to_wav(audio_file):
+def convert_to_temp_wav(audio_file):
+    """Konversi audio ke file WAV sementara."""
     audio = AudioSegment.from_file(audio_file)
-    wav_io = BytesIO()
-    audio.export(wav_io, format="wav")
-    wav_io.seek(0)
-    return wav_io
+    temp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    audio.export(temp_file.name, format="wav")
+    temp_file.close()
+    return temp_file.name
 
 def mfcc_features(file_path):
     try:
-        audio, sample_rate = librosa.load(file_path) 
+        audio, sample_rate = librosa.load(file_path)
         mfccs = librosa.feature.mfcc(y=audio, sr=sample_rate, n_mfcc=28)
         return np.mean(mfccs.T, axis=0)
     except Exception as e:
@@ -28,7 +29,7 @@ def mfcc_features(file_path):
 
 def chroma_features(file_path):
     try:
-        audio, sample_rate = librosa.load(file_path) 
+        audio, sample_rate = librosa.load(file_path)
         chroma = librosa.feature.chroma_stft(y=audio, sr=sample_rate)
         return np.mean(chroma.T, axis=0)
     except Exception as e:
@@ -53,7 +54,6 @@ def predict_song_genre(model, file_path, label_encoder):
     
     if features is not None:
         pred_features = features.reshape(1, -1)
-        
         pred = model.predict(pred_features)
         pred_class = np.argmax(pred)  # Indeks prediksi
         
@@ -78,8 +78,12 @@ def predict():
     audio_file = request.files["voice"]
 
     try:
-        wav_file = convert_to_wav(audio_file)
-        result = predict_song_genre(model, wav_file, label_encoder)
+        # Konversi audio ke file WAV sementara
+        temp_wav_path = convert_to_temp_wav(audio_file)
+        result = predict_song_genre(model, temp_wav_path, label_encoder)
+        
+        # Hapus file sementara
+        os.remove(temp_wav_path)
         
         if result:
             predicted_label, predicted_prob = result
