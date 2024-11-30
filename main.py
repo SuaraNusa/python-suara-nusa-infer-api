@@ -6,6 +6,8 @@ import tempfile
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import LabelEncoder
 import librosa
+import pandas as pd
+
 
 app = Flask(__name__)
 
@@ -66,8 +68,15 @@ def predict_song_genre(model, file_path, label_encoder):
 
 # Load Model dan Label Encoder
 model = load_model("best_model.keras")
+# Membaca file CSV
+file_path = 'class_names.csv'
+df = pd.read_csv(file_path)
+# Mengambil daftar class_name dari CSV
+class_names = df['class_name'].values
+
+# Menggunakan LabelEncoder untuk mengubah class_name menjadi label numerik
 label_encoder = LabelEncoder()
-label_encoder.classes_ = np.array(["class1", "class2", "class3"])  # Ganti dengan label kelas Anda
+label_encoder.fit(class_names)
 
 # Endpoint untuk Prediksi
 @app.route("/predict", methods=["POST"])
@@ -89,7 +98,7 @@ def predict():
             predicted_label, predicted_prob = result
             return jsonify({
                 "predicted_class": predicted_label,
-                "score": round(predicted_prob, 2)
+                "score": float(predicted_prob)  # Mengubah menjadi float
             }), 200
         else:
             return jsonify({"error": "Failed to process audio file"}), 500
