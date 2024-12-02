@@ -28,4 +28,4 @@ COPY . /app/
 EXPOSE $PORT
 
 # Perintah untuk menjalankan aplikasi Flask
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
