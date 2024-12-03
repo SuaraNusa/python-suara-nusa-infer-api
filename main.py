@@ -1,3 +1,4 @@
+from google.cloud import storage
 import os
 import numpy as np
 from flask import Flask, request, jsonify
@@ -9,6 +10,36 @@ import librosa
 import pandas as pd
 
 app = Flask(__name__)
+
+# Fungsi GCS
+def download_model_from_gcs(bucket_name, source_blob_name, destination_file_name):
+    try:
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(source_blob_name)
+        blob.download_to_filename(destination_file_name)
+        print(f"Model downloaded from {source_blob_name} to {destination_file_name}")
+    except Exception as e:
+        print(f"Error downloading model from GCS: {e}")
+        raise
+
+# GCS Config
+GCS_BUCKET_NAME = "suara-nusa-dev-labs"
+GCS_MODEL_PATH = "model/best_model.keras"
+LOCAL_MODEL_PATH = "best_model.keras"
+
+# Unduh model
+download_model_from_gcs(GCS_BUCKET_NAME, GCS_MODEL_PATH, LOCAL_MODEL_PATH)
+
+# Load Model
+model = load_model(LOCAL_MODEL_PATH)
+
+# Load Label Encoder
+file_path = 'class_names.csv'
+df = pd.read_csv(file_path)
+class_names = df['class_name'].values
+label_encoder = LabelEncoder()
+label_encoder.fit(class_names)
 
 # Fungsi Konversi dan Ekstraksi Fitur
 def convert_to_temp_wav(audio_file):
@@ -49,6 +80,7 @@ def combined_features(file_path):
     print(f"Chroma Shape: {chroma.shape if chroma is not None else 'None'}")
     
     return np.concatenate((mfcc, chroma))
+
 
 def predict_song_genre(model, file_path, label_encoder):
     features = combined_features(file_path)
@@ -105,7 +137,6 @@ def predict():
     except Exception as e:
         print(f"Error during prediction: {e}")
         return jsonify({"error": "An error occurred during prediction"}), 500
-
 # Jalankan Flask Server
 if __name__ == "__main__":
     app.run(debug=True)
