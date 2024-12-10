@@ -6,3 +6,4 @@ pydub
 scikit-learn
 gunicorn
 pandas
+google-cloud-storage
